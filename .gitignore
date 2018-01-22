@@ -1,0 +1,5 @@
+*/**
+
+# Cornell Movie Dialogs
+!**/raw_data/download.sh
+!**/prepare_data.py
