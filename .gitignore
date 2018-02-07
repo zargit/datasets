@@ -3,3 +3,5 @@
 # Cornell Movie Dialogs
 !**/raw_data/download.sh
 !**/prepare_data.py
+!**/mov_data
+!**/mov_data/*
