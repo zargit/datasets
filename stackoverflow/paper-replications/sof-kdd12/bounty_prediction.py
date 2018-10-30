@@ -170,6 +170,33 @@ divide questions into bounty and non-bounty
 bounty_questions = questions[questions['hasbounty']=='yes']
 nonbounty_questions = questions[questions['hasbounty']=='no']
 """
+Follow the filter mentioned in the top note for both bounty and nonbounty
+questions.
+"""
+# for bounty
+# table with k and k+1 answer time
+bounty_k_qa = pd.merge(bounty_questions[['id', 'creationdate', 'bountydate']], answers[['parentid', 'creationdate']], how='left', left_on='id', right_on='parentid', suffixes=['_q','_a'])
+bounty_k_qa['delay'] = (bounty_k_qa['creationdate_a']-bounty_k_qa['creationdate_q']).astype('timedelta64[s]')
+bounty_k_qa['timerank'] = bounty_k_qa.groupby('id')['delay'].rank(method='dense')
+bounty_k_qa = bounty_k_qa[bounty_k_qa['timerank'].isin([3,4])]
+btrk = bounty_k_qa[bounty_k_qa['timerank']==k]
+btrkplus1 = bounty_k_qa[bounty_k_qa['timerank']==k+1]
+bounty_k = pd.merge(btrk[['id', 'creationdate_a', 'bountydate']], btrkplus1[['id', 'creationdate_a']], how='left', on='id', suffixes=['_3', '_4'])
+bounty_k['creationdate_a_4'] = bounty_k['creationdate_a_4'].fillna(bounty_k['bountydate']+datetime.timedelta(days=1))
+bounty_k = bounty_k[(bounty_k['creationdate_a_3']<=bounty_k['bountydate']) & (bounty_k['bountydate']<bounty_k['creationdate_a_4'])]
+bounty_questions = bounty_questions[bounty_questions['id'].isin(bounty_k['id'])]
+# for nonbounty
+nonbounty_k_qa = pd.merge(nonbounty_questions[['id', 'creationdate']], answers[['parentid', 'creationdate', 'accepteddate']], how='left', left_on='id', right_on='parentid', suffixes=['_q','_a'])
+nonbounty_k_qa['delay'] = (nonbounty_k_qa['creationdate_a']-nonbounty_k_qa['creationdate_q']).astype('timedelta64[s]')
+nonbounty_k_qa['timerank'] = nonbounty_k_qa.groupby('id')['delay'].rank(method='dense')
+bounty_k_qa = nonbounty_k_qa[nonbounty_k_qa['timerank'].isin([3,4])]
+nbtrk = bounty_k_qa[bounty_k_qa['timerank']==k]
+nbtrkplus1 = bounty_k_qa[bounty_k_qa['timerank']==k+1]
+nonbounty_k = pd.merge(nbtrk[['id', 'creationdate_a', 'accepteddate']], nbtrkplus1[['id', 'creationdate_a']], how='left', on='id', suffixes=['_3', '_4'])
+nonbounty_k['creationdate_a_4'] = nonbounty_k['creationdate_a_4'].fillna(nonbounty_k['accepteddate']+datetime.timedelta(days=1))
+nonbounty_k = nonbounty_k[(nonbounty_k['creationdate_a_3']<=nonbounty_k['accepteddate']) & (nonbounty_k['accepteddate']<nonbounty_k['creationdate_a_4'])]
+nonbounty_questions = nonbounty_questions[nonbounty_questions['id'].isin(nonbounty_k['id'])]
+"""
 As the number of nonbounty_questions is much higher than bounty_questions, we
 take a random sample of number of records from nonbq and get the features.
 """
@@ -201,8 +228,8 @@ Write the 4 function to get the features from above 2 sets.
 """
 
 def Sa():
-    x = qa_k[['id_q', 'owneruserid_q', 'reputation_q']].drop_duplicates('id_q')
-    x.columns = ['id', 'owneruserid', 'reputation']
+    x = qa_k[['id_q', 'owneruserid_q', 'reputation_q', 'hasbounty']].drop_duplicates('id_q')
+    x.columns = ['id', 'owneruserid', 'reputation', 'hasbounty']
     noq = pd.merge(users[['accountid']], x[['owneruserid']], how='inner', left_on='accountid', right_on='owneruserid').groupby('accountid', as_index=False).agg({'owneruserid':'count'})
     noq.columns = ['accountid', 'noq']
     noa = pd.merge(users[['accountid']], answers[['owneruserid']], how='inner', left_on='accountid', right_on='owneruserid').groupby('accountid', as_index=False).count()
@@ -269,4 +296,4 @@ def merge_features():
 if __name__ == '__main__':
     data = merge_features()
     print(data.head())
-    data.to_csv("prediction2.csv")
+    data.to_csv("prediction2v1.csv")
